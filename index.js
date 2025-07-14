@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, Routes } = require('discord.js');
 const { REST } = require('@discordjs/rest');
-const { ApplicationCommandOptionType } = require('discord-api-types/v9'); // v10으로 변경될 수 있음
+const { ApplicationCommandOptionType } = require('discord-api-types/v9');
 
 // Discord 봇 설정
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -11,7 +11,7 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent // 메시지 내용을 읽기 위해 필요 (슬래시 명령어에는 필수는 아님)
+        GatewayIntentBits.MessageContent
     ]
 });
 
@@ -32,6 +32,10 @@ const commands = [
     },
 ];
 
+// 쿨다운 관리를 위한 Map 객체
+const cooldowns = new Map();
+const COOLDOWN_SECONDS = 60; // 쿨다운 시간 (초)
+
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
     console.log('Discord 봇이 준비되었습니다.');
@@ -40,8 +44,7 @@ client.once('ready', async () => {
     try {
         console.log('슬래시 명령어 등록 중...');
         await rest.put(
-            Routes.applicationCommands(CLIENT_ID), // 전역 명령어 등록
-            // Routes.applicationGuildCommands(CLIENT_ID, 'YOUR_GUILD_ID'), // 특정 길드에만 등록 (테스트용)
+            Routes.applicationCommands(CLIENT_ID),
             { body: commands },
         );
         console.log('슬래시 명령어 등록 완료!');
@@ -53,9 +56,27 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
-    const { commandName } = interaction;
+    const { commandName, user } = interaction; // user 객체 추가
 
     if (commandName === '서버 오픈요청') {
+        // 쿨다운 확인
+        if (cooldowns.has(user.id)) {
+            const expirationTime = cooldowns.get(user.id) + COOLDOWN_SECONDS * 1000;
+            const currentTime = Date.now();
+
+            if (currentTime < expirationTime) {
+                const timeLeft = (expirationTime - currentTime) / 1000;
+                return interaction.reply({
+                    content: `잠시만 기다려주세요! 이 명령어는 ${timeLeft.toFixed(1)}초 후에 다시 사용할 수 있습니다.`,
+                    ephemeral: true
+                });
+            }
+        }
+
+        // 쿨다운 설정
+        cooldowns.set(user.id, Date.now());
+        setTimeout(() => cooldowns.delete(user.id), COOLDOWN_SECONDS * 1000);
+
         const additionalMessage = interaction.options.getString('메시지');
         let notificationMessage = 'MMS서버 오픈 요청이 접수되었습니다. 알림을 확인해주세요!';
         if (additionalMessage) {
