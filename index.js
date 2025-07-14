@@ -1,85 +1,54 @@
-const { Client, GatewayIntentBits, Routes } = require('discord.js');
-const { REST } = require('@discordjs/rest');
-const { ApplicationCommandOptionType } = require('discord-api-types/v9');
+const { Client, GatewayIntentBits } = require('discord.js');
 
 // Discord 봇 설정
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
+// CLIENT_ID는 메시지 명령어에서는 필요하지 않습니다.
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent // 메시지 내용을 읽기 위해 필요
     ]
 });
-
-const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
-
-const commands = [
-    {
-        name: '서버요청', // Discord API 규칙에 맞는 영어 이름
-        description: 'MMS 서버 오픈 요청 알림을 보냅니다.',
-        options: [
-            {
-                name: '메시지', // 옵션의 영어 이름
-                description: '알림에 포함할 추가 메시지',
-                type: ApplicationCommandOptionType.String,
-                required: false,
-            },
-        ],
-    },
-];
 
 // 쿨다운 관리를 위한 Map 객체
 const cooldowns = new Map();
 const COOLDOWN_SECONDS = 60; // 쿨다운 시간 (초)
 
-client.once('ready', async () => {
+client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
-    console.log('Discord 봇이 준비되었습니다.');
-
-    // 슬래시 명령어 등록
-    try {
-        console.log('슬래시 명령어 등록 중...');
-        await rest.put(
-            Routes.applicationCommands(CLIENT_ID),
-            { body: commands },
-        );
-        console.log('슬래시 명령어 등록 완료!');
-    } catch (error) {
-        console.error('Discord 명령어 등록 중 오류 발생:', error);
-    }
+    console.log('Discord 봇이 준비되었습니다. 이제 Discord에서 !서버요청 명령어를 사용할 수 있습니다.');
 });
 
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isCommand()) return;
+client.on('messageCreate', async message => {
+    // 봇 자신이 보낸 메시지는 무시
+    if (message.author.bot) return;
 
-    const { commandName, user } = interaction; // user 객체 추가
-
-    if (commandName === '서버요청') { // 실제 명령어 이름은 영어로 확인
+    // '!서버요청' 명령어를 감지
+    if (message.content.startsWith('!서버요청')) { // startsWith로 변경하여 추가 메시지 파싱 가능
         // 쿨다운 확인
-        if (cooldowns.has(user.id)) {
-            const expirationTime = cooldowns.get(user.id) + COOLDOWN_SECONDS * 1000;
+        if (cooldowns.has(message.author.id)) {
+            const expirationTime = cooldowns.get(message.author.id) + COOLDOWN_SECONDS * 1000;
             const currentTime = Date.now();
 
             if (currentTime < expirationTime) {
                 const timeLeft = (expirationTime - currentTime) / 1000;
-                return interaction.reply({
-                    content: `잠시만 기다려주세요! 이 명령어는 ${timeLeft.toFixed(1)}초 후에 다시 사용할 수 있습니다.`,
-                    ephemeral: true
-                });
+                return message.reply(`잠시만 기다려주세요! 이 명령어는 ${timeLeft.toFixed(1)}초 후에 다시 사용할 수 있습니다.`);
             }
         }
 
         // 쿨다운 설정
-        cooldowns.set(user.id, Date.now());
-        setTimeout(() => cooldowns.delete(user.id), COOLDOWN_SECONDS * 1000);
+        cooldowns.set(message.author.id, Date.now());
+        setTimeout(() => cooldowns.delete(message.author.id), COOLDOWN_SECONDS * 1000);
 
-        const additionalMessage = interaction.options.getString('메시지');
         let notificationMessage = 'MMS서버 오픈 요청이 접수되었습니다. 알림을 확인해주세요!';
-        if (additionalMessage) {
+        // 메시지 명령어에서는 추가 메시지 옵션을 직접 파싱해야 합니다.
+        // 예: '!서버요청 추가 메시지 내용'
+        const args = message.content.split(' ');
+        if (args.length > 1) {
+            const additionalMessage = args.slice(1).join(' ');
             notificationMessage += `\n추가 메시지: ${additionalMessage}`;
         }
 
@@ -87,13 +56,13 @@ client.on('interactionCreate', async interaction => {
             const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
             if (channel) {
                 await channel.send(notificationMessage);
-                await interaction.reply({ content: 'Discord 알림이 성공적으로 전송되었습니다.', ephemeral: true });
+                message.reply('Discord 알림이 성공적으로 전송되었습니다.');
             } else {
-                await interaction.reply({ content: 'Discord 채널을 찾을 수 없습니다. 채널 ID를 확인해주세요.', ephemeral: true });
+                message.reply('Discord 채널을 찾을 수 없습니다. 채널 ID를 확인해주세요.');
             }
         } catch (error) {
             console.error('Discord 알림 전송 중 오류 발생:', error);
-            await interaction.reply({ content: 'Discord 알림 전송에 실패했습니다.', ephemeral: true });
+            message.reply('Discord 알림 전송에 실패했습니다.');
         }
     }
 });
