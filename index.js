@@ -58,7 +58,7 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName, user } = interaction; // user 객체 추가
 
-    if (commandName === '서버 오픈요청') {
+    if (commandName === '서버-오픈요청') {
         // 쿨다운 확인
         if (cooldowns.has(user.id)) {
             const expirationTime = cooldowns.get(user.id) + COOLDOWN_SECONDS * 1000;
