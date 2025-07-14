@@ -19,7 +19,7 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
 
 const commands = [
     {
-        name: '서버 오픈요청',
+        name: '서버-오픈요청',
         description: 'MMS 서버 오픈 요청 알림을 보냅니다.',
         options: [
             {
