@@ -19,17 +19,11 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
 
 const commands = [
     {
-        name: 'server-open-request', // Discord API 규칙에 맞는 영어 이름
-        name_localizations: { // 사용자에게 보여질 한글 이름
-            'ko': '서버 오픈요청'
-        },
+        name: '서버요청', // Discord API 규칙에 맞는 영어 이름
         description: 'MMS 서버 오픈 요청 알림을 보냅니다.',
         options: [
             {
-                name: 'message', // 옵션의 영어 이름
-                name_localizations: { // 옵션의 한글 이름
-                    'ko': '메시지'
-                },
+                name: '메시지', // 옵션의 영어 이름
                 description: '알림에 포함할 추가 메시지',
                 type: ApplicationCommandOptionType.String,
                 required: false,
@@ -64,7 +58,7 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName, user } = interaction; // user 객체 추가
 
-    if (commandName === 'server-open-request') { // 실제 명령어 이름은 영어로 확인
+    if (commandName === '서버요청') { // 실제 명령어 이름은 영어로 확인
         // 쿨다운 확인
         if (cooldowns.has(user.id)) {
             const expirationTime = cooldowns.get(user.id) + COOLDOWN_SECONDS * 1000;
@@ -83,7 +77,7 @@ client.on('interactionCreate', async interaction => {
         cooldowns.set(user.id, Date.now());
         setTimeout(() => cooldowns.delete(user.id), COOLDOWN_SECONDS * 1000);
 
-        const additionalMessage = interaction.options.getString('message');
+        const additionalMessage = interaction.options.getString('메시지');
         let notificationMessage = 'MMS서버 오픈 요청이 접수되었습니다. 알림을 확인해주세요!';
         if (additionalMessage) {
             notificationMessage += `\n추가 메시지: ${additionalMessage}`;
